@@ -1,0 +1,9 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+.venv/
+__pycache__/
+backend/*.db
+backend/keys/

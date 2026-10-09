@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jilla Authority Console</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --bg: #f6f2f1; --panel: #ffffff; --ink: #1d1b1a; --muted: #6b6461; --line: #e7dfdc;
+    --red: #c62828; --red-soft: #fde8e7; --green: #2e7d32; --amber: #b26a00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151110; --panel: #1f1918; --ink: #f3ece9; --muted: #a99f9b; --line: #3a302e; --red-soft: #3b1715; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--ink); }
+  header { display: flex; align-items: center; gap: 16px; padding: 16px 24px; background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 2; }
+  header h1 { font-size: 18px; margin: 0; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  .live { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); margin-left: auto; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); }
+  .dot.off { background: var(--amber); }
+  button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 6px 12px; border-radius: 8px; cursor: pointer; }
+  button.danger { color: var(--red); border-color: var(--red); }
+  #banner { display: none; background: var(--red); color: #fff; padding: 12px 24px; font-weight: 600; }
+  #banner.show { display: block; animation: flash 1s ease-in-out 3; }
+  @keyframes flash { 50% { opacity: .55; } }
+  main { max-width: 1200px; margin: 0 auto; padding: 24px; display: grid; gap: 20px; }
+  .empty { color: var(--muted); text-align: center; padding: 64px 0; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
+  .card.new { box-shadow: 0 0 0 3px var(--red); }
+  .info { padding: 18px 20px; display: grid; gap: 10px; align-content: start; }
+  .title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .title h2 { margin: 0; font-size: 20px; }
+  .badge.unverified { background: #fff3cd; color: #8a5a00; }
+  .card.unverified { border-color: var(--amber); border-width: 2px; }
+  .warn { color: var(--amber); font-weight: 600; }
+  .badge { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--red-soft); color: var(--red); }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; }
+  dt { color: var(--muted); }
+  dd { margin: 0; overflow-wrap: anywhere; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+  iframe { width: 100%; height: 100%; min-height: 300px; border: 0; display: block; }
+  a { color: var(--red); }
+  .blepanel { max-width: 1200px; margin: 16px auto 0; padding: 12px 24px; display: grid; gap: 4px; color: var(--muted); font-size: 13px; }
+  .blepanel strong { color: var(--ink); }
+  .blepanel ol { margin: 4px 0 0; padding-left: 18px; max-height: 120px; overflow: auto; font-family: ui-monospace, monospace; font-size: 12px; }
+  footer { color: var(--muted); font-size: 12px; text-align: center; padding: 0 24px 24px; }
+  @media (max-width: 760px) {
+    .card { grid-template-columns: 1fr; }
+    header { padding: 12px 16px; flex-wrap: wrap; }
+    main { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Jilla Authority Console</h1>
+    <div class="sub">Decrypted SOS dispatches · stands in for police / 112</div>
+  </div>
+  <span class="live"><span id="dot" class="dot"></span><span id="status">connecting…</span></span>
+  <button id="ble">Connect phone via Bluetooth</button>
+  <button id="clear" class="danger">Clear all</button>
+  <button id="sound">Enable sound &amp; notifications</button>
+</header>
+<section id="blepanel" class="blepanel">
+  <strong>Bluetooth receiver</strong>
+  <span id="blestate">Not connected. This laptop acts as the authority device: phones push sealed alerts to it over BLE, no internet needed on the phone.</span>
+  <ol id="blelog"></ol>
+</section>
+<div id="banner"></div>
+<main id="list"><div class="empty">No alerts yet. Waiting for SOS…</div></main>
+<footer>Proof of concept. Alerts arrive signed and sealed; only this authority's private key can open them.</footer>
+<script>
+const list = document.getElementById('list');
+const banner = document.getElementById('banner');
+let known = new Set(), first = true, audio = null, lastSig = '';
+
+document.getElementById('sound').onclick = async () => {
+  audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+  if ('Notification' in window && Notification.permission === 'default') await Notification.requestPermission();
+  document.getElementById('sound').textContent = 'Sound & notifications on';
+};
+
+function desktopNotify(r) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const n = new Notification('🚨 ' + (r.verified === false ? 'UNVERIFIED ' : '') + 'SOS: ' + r.name + ' needs help', {
+    body: `${r.registered_phone}\nNear ${r.lat.toFixed(5)}, ${r.lng.toFixed(5)}\n${r.note || ''}`,
+    requireInteraction: true, tag: r.alert_id,
+  });
+  n.onclick = () => { window.focus(); n.close(); };
+}
+
+// ---- Web Bluetooth receiver (laptop = authority device) --------------------
+// Phone runs a GATT server (BleMeshTransport.kt). We subscribe to TX notifications,
+// reassemble chunks (ChunkFraming.kt format) and hand the still-sealed packet to the
+// backend on this machine, which verifies, decrypts and dispatches it.
+const SVC = '6a1b5f00-7c3e-4a0e-9d5b-0a11a5050001';
+const TX  = '6a1b5f00-7c3e-4a0e-9d5b-0a11a5050002';
+const bleLog = document.getElementById('blelog');
+const bleState = document.getElementById('blestate');
+function blelog(msg) {
+  const li = document.createElement('li');
+  li.textContent = new Date().toLocaleTimeString() + '  ' + msg;
+  bleLog.prepend(li);
+  while (bleLog.children.length > 50) bleLog.lastChild.remove();
+}
+
+class Reassembler {
+  constructor() { this.buf = null; this.len = 0; this.off = 0; }
+  feed(c) {
+    if (!c.length) return null;
+    if (c[0] === 1) {
+      if (c.length < 3) return this.reset();
+      this.len = (c[1] << 8) | c[2];
+      if (this.len < 1 || this.len > 4096) return this.reset();
+      this.buf = new Uint8Array(this.len); this.off = 0;
+      return this.add(c.subarray(3));
+    }
+    if (c[0] === 0 && this.buf) return this.add(c.subarray(1));
+    return this.reset();
+  }
+  add(d) {
+    if (this.off + d.length > this.len) return this.reset();
+    this.buf.set(d, this.off); this.off += d.length;
+    if (this.off === this.len) { const p = this.buf; this.buf = null; return p; }
+    return null;
+  }
+  reset() { this.buf = null; return null; }
+}
+
+async function forward(pkt, from) {
+  try {
+    const res = await fetch('/sos', { method: 'POST', headers: { 'content-type': 'application/cbor' }, body: pkt });
+    const j = await res.json();
+    blelog(`${from}: ${pkt.length} B sealed packet → server: ${j.status}${j.reason ? ' (' + j.reason + ')' : ''}`);
+    poll();
+  } catch (e) { blelog(`${from}: forward failed: ${e}`); }
+}
+
+async function attach(device) {
+  const name = device.name || device.id.slice(0, 8);
+  let tries = 0;
+  for (;;) {
+    try {
+      bleState.textContent = `Connecting to ${name}…`;
+      const server = await device.gatt.connect();
+      const ch = await (await server.getPrimaryService(SVC)).getCharacteristic(TX);
+      const r = new Reassembler();
+      ch.addEventListener('characteristicvaluechanged', e => {
+        const v = e.target.value;
+        const pkt = r.feed(new Uint8Array(v.buffer, v.byteOffset, v.byteLength));
+        if (pkt) forward(pkt, name);
+      });
+      await ch.startNotifications();
+      bleState.textContent = `Connected to ${name}. Listening for alerts over Bluetooth.`;
+      blelog(`connected to ${name}, subscribed to alerts`);
+      return;
+    } catch (e) {
+      if (++tries > 5) { bleState.textContent = `Could not connect to ${name}: ${e.message}`; return; }
+      await new Promise(ok => setTimeout(ok, 1500 * tries));
+    }
+  }
+}
+
+document.getElementById('ble').onclick = async () => {
+  if (!navigator.bluetooth) {
+    bleState.textContent = 'Web Bluetooth not available. Use Chrome or Edge on http://localhost:8000. ' +
+      'On Linux enable chrome://flags/#enable-experimental-web-platform-features and restart Chrome.';
+    return;
+  }
+  try {
+    const device = await navigator.bluetooth.requestDevice({ filters: [{ services: [SVC] }] });
+    device.addEventListener('gattserverdisconnected', () => {
+      blelog(`${device.name || 'phone'} disconnected, reconnecting…`);
+      attach(device);
+    });
+    await attach(device);
+  } catch (e) {
+    if (e.name !== 'NotFoundError') bleState.textContent = 'Bluetooth error: ' + e.message;
+  }
+};
+
+function beep() {
+  if (!audio) return;
+  [0, 0.35, 0.7].forEach(t => {
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.frequency.value = 880; o.connect(g); g.connect(audio.destination);
+    g.gain.setValueAtTime(0.25, audio.currentTime + t);
+    g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + t + 0.25);
+    o.start(audio.currentTime + t); o.stop(audio.currentTime + t + 0.3);
+  });
+}
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ago = ms => { const s = Math.round((Date.now() - ms) / 1000); return s < 60 ? s + 's ago' : s < 3600 ? Math.round(s/60) + 'm ago' : Math.round(s/3600) + 'h ago'; };
+
+function render(rows) {
+  // only rebuild when something changed, so the map iframes don't reload every poll
+  const sig = rows.length + ':' + (rows.length ? rows[rows.length - 1].at : 0);
+  if (sig === lastSig) return;
+  lastSig = sig;
+  // group updates by alert; keep the latest location, first-seen time and update count
+  const alerts = new Map();
+  for (const r of rows) {
+    const a = alerts.get(r.alert_id) || { first: r, updates: 0 };
+    a.latest = r; a.updates++; alerts.set(r.alert_id, a);
+  }
+  const sorted = [...alerts.values()].sort((x, y) => y.latest.at - x.latest.at);
+  const fresh = sorted.filter(a => !known.has(a.first.alert_id));
+  if (!first && fresh.length) {
+    const r = fresh[0].latest;
+    banner.textContent = `NEW ${r.verified === false ? 'UNVERIFIED ' : ''}SOS: ${r.name} needs help near ${r.lat.toFixed(5)}, ${r.lng.toFixed(5)}`;
+    banner.classList.remove('show'); void banner.offsetWidth; banner.classList.add('show');
+    beep();
+    desktopNotify(r);
+    document.title = '🚨 SOS: ' + r.name;
+  }
+  sorted.forEach(a => known.add(a.first.alert_id));
+  first = false;
+  if (!sorted.length) { list.innerHTML = '<div class="empty">No alerts yet. Waiting for SOS…</div>'; return; }
+
+  list.innerHTML = sorted.map(a => {
+    const r = a.latest;
+    const isNew = fresh.some(f => f.first.alert_id === r.alert_id);
+    const hasFix = !(r.lat === 0 && r.lng === 0);
+    const map = hasFix
+      ? `<iframe loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="https://maps.google.com/maps?q=${r.lat},${r.lng}&z=16&output=embed"></iframe>`
+      : `<div class="empty">No GPS fix in this alert</div>`;
+    const unv = r.verified === false;
+    return `<article class="card${isNew ? ' new' : ''}${unv ? ' unverified' : ''}">
+      <div class="info">
+        <div class="title"><h2>${esc(r.name)}</h2><span class="badge">SOS · ${a.updates} update${a.updates > 1 ? 's' : ''}</span>${unv ? '<span class="badge unverified">UNVERIFIED</span>' : ''}</div>
+        ${unv ? '<div class="warn">Sender never registered: name and details are self-reported and can\'t be confirmed. Cryptographic checks passed.</div>' : ''}
+        <dl>
+          <dt>Phone</dt><dd>${esc(r.registered_phone)}</dd>
+          <dt>Location</dt><dd class="mono">${r.lat.toFixed(6)}, ${r.lng.toFixed(6)} · <a href="${esc(r.maps)}" target="_blank" rel="noopener">open map</a></dd>
+          <dt>Note</dt><dd>${esc(r.note) || '—'}</dd>
+          <dt>Contacts</dt><dd>${(r.contacts || []).map(esc).join('<br>') || '—'}</dd>
+          <dt>Raised</dt><dd>${new Date(a.first.sent_at_ms).toLocaleTimeString()} (${ago(a.first.sent_at_ms)})</dd>
+          <dt>Last update</dt><dd>${new Date(r.sent_at_ms).toLocaleTimeString()} (${ago(r.sent_at_ms)})</dd>
+          <dt>Hops left</dt><dd>${r.ttl_at_arrival} of 7 on arrival</dd>
+          <dt>Alert</dt><dd class="mono">${esc(r.alert_id.slice(0, 16))}…</dd>
+          <dt>Device</dt><dd class="mono">${esc(r.device_uuid)}</dd>
+        </dl>
+      </div>
+      ${map}
+    </article>`;
+  }).join('');
+}
+
+async function poll() {
+  try {
+    const res = await fetch('/dispatches' + location.search, { cache: 'no-store' });
+    if (res.status === 401) {
+      clearInterval(timer);
+      document.getElementById('dot').className = 'dot off';
+      document.getElementById('status').textContent = 'access token required';
+      list.innerHTML = '<div class="empty">This console shows decrypted victim data, so it needs an access token.<br>Open it as <span class="mono">/?token=&lt;JILLA_DASH_TOKEN&gt;</span>.</div>';
+      return;
+    }
+    render(await res.json());
+    document.getElementById('dot').className = 'dot';
+    document.getElementById('status').textContent = 'live';
+  } catch (e) {
+    document.getElementById('dot').className = 'dot off';
+    document.getElementById('status').textContent = 'server unreachable';
+  }
+}
+document.getElementById('clear').onclick = async () => {
+  if (!confirm('Delete all dispatch records and clear the Bluetooth log?\n\n' +
+               'Alerts already seen stay blocked from being replayed.')) return;
+  const res = await fetch('/dispatches' + location.search, { method: 'DELETE' });
+  if (!res.ok) { alert('Clear failed: HTTP ' + res.status); return; }
+  const j = await res.json();
+  bleLog.innerHTML = '';
+  known = new Set(); lastSig = '';
+  banner.classList.remove('show'); document.title = 'Jilla Authority Console';
+  list.innerHTML = '<div class="empty">Cleared ' + j.deleted + ' record(s). Waiting for SOS…</div>';
+  lastSig = '0:0'; // keep the "cleared" message until something new arrives
+};
+
+const timer = setInterval(poll, 2000); poll();
+</script>
+</body>
+</html>

@@ -1,0 +1,965 @@
+<title>Jilla Safety Mesh</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a field manual read like a deck. Sticky chapter rail (desktop) + numbered chapters, because the content is a sequence. */
+:root {
+  --paper: #f7f5f6;
+  --panel: #ffffff;
+  --ink: #1c1620;
+  --muted: #625a66;
+  --line: #e2dbe0;
+  --signal: #d7263d;      /* SOS red, same as the app */
+  --signal-soft: #fbe3e6;
+  --mesh: #0f7c80;        /* relay / online teal */
+  --mesh-soft: #dcefef;
+  --amber: #a86500;
+  --amber-soft: #fbefd9;
+  --dead: #ece6ea;        /* no-signal zone fill */
+  --font-display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --step--1: clamp(0.8rem, 0.78rem + 0.1vw, 0.86rem);
+  --step-0: clamp(0.98rem, 0.94rem + 0.2vw, 1.06rem);
+  --step-1: clamp(1.15rem, 1.05rem + 0.45vw, 1.35rem);
+  --step-2: clamp(1.45rem, 1.25rem + 0.9vw, 2rem);
+  --step-3: clamp(2rem, 1.6rem + 2vw, 3.2rem);
+  --step-4: clamp(2.6rem, 1.9rem + 3.6vw, 5rem);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #131016; --panel: #1c1820; --ink: #f1ecf2; --muted: #a9a0ad; --line: #332c38;
+    --signal: #ff5a6c; --signal-soft: #3a1820; --mesh: #42c2c4; --mesh-soft: #10302f;
+    --amber: #f0b45a; --amber-soft: #33270f; --dead: #221d27; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #131016; --panel: #1c1820; --ink: #f1ecf2; --muted: #a9a0ad; --line: #332c38;
+  --signal: #ff5a6c; --signal-soft: #3a1820; --mesh: #42c2c4; --mesh-soft: #10302f;
+  --amber: #f0b45a; --amber-soft: #33270f; --dead: #221d27; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { background: var(--paper); color: var(--ink); font: 400 var(--step-0)/1.6 var(--font-body); }
+a { color: var(--signal); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible, input:focus-visible, label:focus-visible { outline: 3px solid var(--mesh); outline-offset: 2px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; line-height: 1.05; }
+h2 { font-size: var(--step-3); font-stretch: 112%; font-weight: 800; letter-spacing: -0.01em; }
+h3 { font-size: var(--step-1); font-weight: 700; font-stretch: 100%; line-height: 1.25; }
+p { margin: 0; max-width: 66ch; }
+code, .mono { font-family: var(--font-mono); font-size: 0.9em; }
+.eyebrow { font: 600 var(--step--1)/1 var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+
+.wrap { padding-inline: clamp(16px, 4vw, 48px); }
+.shell { max-width: 1240px; margin: 0 auto; display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 48px; }
+@media (max-width: 960px) { .shell { grid-template-columns: minmax(0, 1fr); gap: 0; } .rail { display: none; } }
+
+/* chapter rail */
+.rail { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; padding-block: 32px; }
+.rail ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; counter-reset: ch; }
+.rail a { display: grid; grid-template-columns: 2.2em 1fr; gap: 4px; padding: 6px 8px; border-radius: 6px; color: var(--muted); text-decoration: none; font-size: var(--step--1); line-height: 1.3; }
+.rail a span:first-child { font-family: var(--font-mono); }
+.rail a:hover, .rail a.on { color: var(--ink); background: var(--panel); }
+.rail a.on span:first-child { color: var(--signal); }
+
+/* top bar */
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 18px; max-width: 1240px; margin: 0 auto; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; font: 800 1.15rem/1 var(--font-display); font-stretch: 118%; letter-spacing: 0.02em; }
+.brand-mark { width: 26px; height: 26px; border-radius: 50%; background: var(--signal); display: grid; place-items: center; color: #fff; font: 800 0.62rem/1 var(--font-display); }
+.topbar nav { display: flex; gap: 18px; flex-wrap: wrap; font-size: var(--step--1); }
+.topbar nav a { color: var(--muted); text-decoration: none; }
+.topbar nav a:hover { color: var(--ink); }
+
+/* chapters */
+main { min-width: 0; }
+.chapter { padding-block: clamp(48px, 7vw, 88px); border-top: 1px solid var(--line); display: grid; gap: 28px; scroll-margin-top: 16px; }
+.chapter-head { display: grid; gap: 12px; }
+.chapter-head .num { font: 500 var(--step--1)/1 var(--font-mono); color: var(--signal); letter-spacing: 0.1em; }
+.lede { font-size: var(--step-1); color: var(--muted); line-height: 1.5; max-width: 60ch; }
+
+/* hero */
+.hero { padding-block: clamp(32px, 6vw, 72px) clamp(40px, 6vw, 72px); display: grid; gap: 28px; }
+.hero h1 { font-size: var(--step-4); font-weight: 900; font-stretch: 125%; letter-spacing: -0.02em; line-height: 0.95; max-width: 14ch; }
+.hero h1 em { font-style: normal; color: var(--signal); }
+.hero .lede { max-width: 58ch; }
+.cta { display: flex; gap: 12px; flex-wrap: wrap; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 18px; border-radius: 999px; font: 600 var(--step--1)/1 var(--font-body); text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink); background: transparent; cursor: pointer; }
+.btn.primary { background: var(--signal); border-color: var(--signal); color: #fff; }
+.btn:hover { transform: translateY(-1px); }
+.facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+@media (max-width: 760px) { .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.fact { background: var(--panel); padding: 18px; display: grid; gap: 6px; align-content: start; min-width: 0; }
+.fact b { font: 800 var(--step-2)/1 var(--font-display); font-stretch: 110%; font-variant-numeric: tabular-nums; }
+.fact span { font-size: var(--step--1); color: var(--muted); line-height: 1.4; }
+.fact a { font-size: 0.75rem; color: var(--muted); }
+
+/* generic grids and cards */
+.grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+@media (max-width: 860px) { .grid-2, .grid-3 { grid-template-columns: minmax(0, 1fr); } }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.card p { color: var(--muted); font-size: var(--step--1); line-height: 1.55; }
+.tag { justify-self: start; font: 600 0.7rem/1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; padding: 5px 8px; border-radius: 4px; background: var(--mesh-soft); color: var(--mesh); }
+.tag.red { background: var(--signal-soft); color: var(--signal); }
+.tag.amber { background: var(--amber-soft); color: var(--amber); }
+
+/* news */
+.filters { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { font: 500 var(--step--1)/1 var(--font-body); padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--muted); cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.news { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 860px) { .news { grid-template-columns: minmax(0, 1fr); } }
+.news article { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.news .meta { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; font: 500 0.75rem/1.2 var(--font-mono); color: var(--muted); }
+.news h3 { font-size: var(--step-0); font-family: var(--font-body); font-weight: 600; line-height: 1.35; }
+.news p { font-size: var(--step--1); color: var(--muted); }
+.note { font-size: var(--step--1); color: var(--muted); }
+
+/* simulation */
+.sim { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; display: grid; }
+.sim-stage { position: relative; width: 100%; aspect-ratio: 16 / 8; max-width: 100%; }
+@media (max-width: 640px) { .sim-stage { aspect-ratio: 4 / 3.4; } }
+.sim-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.sim-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 14px 16px; border-top: 1px solid var(--line); }
+.sim-bar button { font: 600 var(--step--1)/1 var(--font-body); padding: 9px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; }
+.sim-bar button.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.sim-progress { flex: 1 1 160px; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; min-width: 120px; }
+.sim-progress i { display: block; height: 100%; width: 0; background: var(--signal); }
+.sim-caption { padding: 16px 20px 20px; display: grid; gap: 6px; border-top: 1px solid var(--line); min-height: 112px; }
+.sim-caption .step { font: 600 0.75rem/1 var(--font-mono); color: var(--signal); letter-spacing: 0.08em; text-transform: uppercase; }
+.sim-caption h3 { font-family: var(--font-body); font-size: var(--step-0); }
+.sim-caption p { color: var(--muted); font-size: var(--step--1); }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: var(--step--1); color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.views { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 760px) { .views { grid-template-columns: minmax(0, 1fr); } }
+.view { border-radius: 12px; padding: 16px; display: grid; gap: 8px; min-width: 0; border: 1px solid var(--line); background: var(--panel); }
+.view pre { margin: 0; font: 400 0.8rem/1.55 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.view .redact { background: var(--ink); color: var(--ink); border-radius: 3px; }
+
+/* packet anatomy */
+.packet { display: grid; grid-template-columns: 0.6fr 2.4fr 3fr 1.4fr; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); font: 500 0.8rem/1.35 var(--font-mono); }
+@media (max-width: 760px) { .packet { grid-template-columns: minmax(0, 1fr); } }
+.packet div { padding: 14px; display: grid; gap: 4px; min-width: 0; }
+.packet div b { font-family: var(--font-body); font-size: 0.9rem; }
+.packet .p-ttl { background: var(--amber-soft); color: var(--amber); }
+.packet .p-hdr { background: var(--mesh-soft); color: var(--mesh); }
+.packet .p-seal { background: var(--ink); color: var(--paper); }
+.packet .p-sig { background: var(--signal-soft); color: var(--signal); }
+.packet small { font-family: var(--font-body); opacity: 0.85; font-size: 0.78rem; }
+
+/* tables */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: var(--step--1); }
+th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 0.72rem/1.2 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+tr:last-child td { border-bottom: 0; }
+td code { white-space: nowrap; }
+
+/* crypto deep dive */
+.formula { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; overflow-x: auto; }
+.formula pre { margin: 0; font: 400 0.84rem/1.7 var(--font-mono); white-space: pre; }
+.formula .c { color: var(--muted); }
+.formula .k { color: var(--signal); }
+.formula .m { color: var(--mesh); }
+.props { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 900px) { .props { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.prop { border-top: 3px solid var(--signal); background: var(--panel); border-radius: 0 0 10px 10px; padding: 14px; display: grid; gap: 6px; min-width: 0; }
+.prop:nth-child(2) { border-color: var(--mesh); }
+.prop:nth-child(3) { border-color: var(--amber); }
+.prop:nth-child(4) { border-color: var(--ink); }
+.prop b { font: 700 var(--step-0)/1.2 var(--font-display); }
+.prop p { font-size: var(--step--1); color: var(--muted); }
+
+/* architecture */
+.arch { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
+@media (max-width: 900px) { .arch { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .arch { grid-template-columns: minmax(0, 1fr); } }
+.arch .card ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: var(--step--1); display: grid; gap: 4px; }
+
+/* video */
+.video { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; display: grid; }
+.video-frame { position: relative; aspect-ratio: 16 / 9; background: var(--ink); max-width: 100%; }
+.video-frame video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
+.drop { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; color: var(--paper); gap: 10px; border: 2px dashed transparent; }
+.drop.over { border-color: var(--signal); }
+.drop p { color: color-mix(in srgb, var(--paper) 75%, transparent); margin: 0 auto; }
+.drop label { cursor: pointer; }
+.video-bar { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 14px 16px; border-top: 1px solid var(--line); font-size: var(--step--1); color: var(--muted); }
+.video-bar input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+/* results + timeline */
+.checks { display: grid; gap: 10px; }
+.check { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+.check .ok { font: 700 0.72rem/1 var(--font-mono); color: var(--mesh); background: var(--mesh-soft); padding: 6px 8px; border-radius: 4px; }
+.check p { font-size: var(--step--1); color: var(--muted); }
+.road { display: grid; gap: 0; border-left: 2px solid var(--line); margin-left: 8px; }
+.road > div { position: relative; padding: 0 0 24px 24px; display: grid; gap: 6px; }
+.road > div::before { content: ""; position: absolute; left: -7px; top: 6px; width: 12px; height: 12px; border-radius: 50%; background: var(--paper); border: 2px solid var(--signal); }
+.road > div.done::before { background: var(--signal); }
+.road p { font-size: var(--step--1); color: var(--muted); }
+
+footer { border-top: 1px solid var(--line); padding-block: 32px 48px; color: var(--muted); font-size: var(--step--1); }
+footer .inner { max-width: 1240px; margin: 0 auto; display: flex; gap: 24px; justify-content: space-between; flex-wrap: wrap; }
+</style>
+
+<div class="wrap">
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">SOS</span>JILLA</div>
+    <nav aria-label="Quick links">
+      <a href="#how">How it works</a>
+      <a href="#crypto">Crypto &amp; security</a>
+      <a href="#demo">Demo</a>
+      <a href="#news">News</a>
+    </nav>
+  </header>
+</div>
+
+<div class="wrap">
+  <div class="shell">
+    <aside class="rail" aria-label="Chapters">
+      <ol id="rail">
+        <li><a href="#top"><span>00</span><span>Overview</span></a></li>
+        <li><a href="#problem"><span>01</span><span>The problem</span></a></li>
+        <li><a href="#news"><span>02</span><span>In the news</span></a></li>
+        <li><a href="#why"><span>03</span><span>Why we built it</span></a></li>
+        <li><a href="#how"><span>04</span><span>How it works offline</span></a></li>
+        <li><a href="#paths"><span>05</span><span>Delivery paths</span></a></li>
+        <li><a href="#crypto"><span>06</span><span>Crypto &amp; security</span></a></li>
+        <li><a href="#cns"><span>07</span><span>Why it's a CNS project</span></a></li>
+        <li><a href="#arch"><span>08</span><span>Architecture</span></a></li>
+        <li><a href="#demo"><span>09</span><span>Live demo</span></a></li>
+        <li><a href="#tested"><span>10</span><span>What we tested</span></a></li>
+        <li><a href="#limits"><span>11</span><span>Limits</span></a></li>
+        <li><a href="#roadmap"><span>12</span><span>Roadmap</span></a></li>
+      </ol>
+    </aside>
+
+    <main>
+      <!-- 00 -->
+      <section class="hero" id="top">
+        <span class="eyebrow">Cryptography &amp; Network Security · course project · proof of concept</span>
+        <h1>An SOS that finds its own way <em>out</em>.</h1>
+        <p class="lede">Jilla is a women-safety SOS for Android that still works when there is no signal and no internet. The alert hops phone to phone over Bluetooth until any phone with a connection hands it to the authority. Every phone in between carries it without being able to read it, change it or fake it.</p>
+        <div class="cta">
+          <a class="btn primary" href="#how">Watch it work offline</a>
+          <a class="btn" href="#cns">Why it's a CNS project</a>
+          <a class="btn" href="#demo">See the phone demo</a>
+        </div>
+        <div class="facts" role="list">
+          <div class="fact" role="listitem"><b>4,48,211</b><span>crimes against women recorded in India in 2023</span><a href="https://www.theweek.in/wire-updates/national/2025/09/30/del31-ncrb-women.html" target="_blank" rel="noopener">NCRB via The Week</a></div>
+          <div class="fact" role="listitem"><b>~80/day</b><span>rape cases reported in India on average in 2024</span><a href="https://www.france24.com/en/live-news/20260925-india-rape-cases-turn-focus-back-onto-women-s-safety" target="_blank" rel="noopener">AFP via France 24</a></div>
+          <div class="fact" role="listitem"><b>5,271</b><span>villages in the Northeast without 4G coverage (June 2025)</span><a href="https://www.sentinelassam.com/amp/story/topheadlines/3841-villages-in-northeast-remain-out-of-mobile-network-coverage" target="_blank" rel="noopener">Sentinel Assam</a></div>
+          <div class="fact" role="listitem"><b>65</b><span>government internet shutdowns in India in 2025</span><a href="https://visionias.in/current-affairs/upsc-daily-news-summary/article/2026-04-01/the-indian-express/security/india-recorded-65-internet-shutdowns-in-2025-highest-among-democracies-access-now-report" target="_blank" rel="noopener">Access Now, reported</a></div>
+        </div>
+      </section>
+
+      <!-- 01 -->
+      <section class="chapter" id="problem">
+        <div class="chapter-head">
+          <span class="num">01 · The problem</span>
+          <h2>Help is one call away, if the call goes through.</h2>
+          <p class="lede">India's emergency system is real and growing: 112 is live in all 36 states and UTs and handled about 10.89 crore calls in FY 2022–23. Every channel it offers assumes the person in danger has a working network at that moment.</p>
+        </div>
+        <div class="grid-3">
+          <div class="card">
+            <span class="tag red">Scale</span>
+            <h3>4.48 lakh recorded crimes a year</h3>
+            <p>NCRB's 2023 data: 4,48,211 crimes against women, a rate of 66.2 per lakh women. Kidnapping and abduction (88,605) and assault to outrage modesty (83,891) are crimes where minutes matter.</p>
+          </div>
+          <div class="card">
+            <span class="tag amber">Coverage</span>
+            <h3>Dead zones are where it's worst</h3>
+            <p>Rural teledensity is 58.8% against 125.3% urban. Thousands of villages still lack 4G, and phones also go dark in basements, lifts, highways, crowded events and on low-balance SIMs.</p>
+          </div>
+          <div class="card">
+            <span class="tag">Shutdowns</span>
+            <h3>Networks get switched off</h3>
+            <p>India had 65 internet shutdowns in 2025 and 84 in 2024, the most of any democracy, often during protests and unrest, when people are least safe.</p>
+          </div>
+        </div>
+        <p class="note">Figures are from NCRB's <em>Crime in India 2023</em> (released 30 Sep 2025), a Rajya Sabha reply on ERSS-112 (Dec 2023), Ookla's H1 2025 analysis and Access Now's shutdown reports, each linked in the news chapter.</p>
+      </section>
+
+      <!-- 02 -->
+      <section class="chapter" id="news">
+        <div class="chapter-head">
+          <span class="num">02 · In the news</span>
+          <h2>Women's safety, right now.</h2>
+          <p class="lede">A snapshot of recent reporting that shaped this project. Each item links to its source.</p>
+        </div>
+        <div class="filters" role="group" aria-label="Filter news">
+          <button class="chip" aria-pressed="true" data-f="all">All</button>
+          <button class="chip" aria-pressed="false" data-f="incident">Incidents &amp; protests</button>
+          <button class="chip" aria-pressed="false" data-f="data">Data</button>
+          <button class="chip" aria-pressed="false" data-f="network">Connectivity</button>
+          <button class="chip" aria-pressed="false" data-f="policy">Policy</button>
+        </div>
+        <div class="news" id="newsList">
+          <article data-k="incident">
+            <div class="meta"><span>25 Sep 2026</span><span>AFP / France 24</span></div>
+            <h3>India rape cases turn focus back onto women's safety</h3>
+            <p>After a 17-year-old was assaulted near Kalkaji Mandir in Delhi on 21 September, AFP notes India averaged about 80 rape cases a day in 2024 despite tougher laws.</p>
+            <a href="https://www.france24.com/en/live-news/20260925-india-rape-cases-turn-focus-back-onto-women-s-safety" target="_blank" rel="noopener">Read on France 24</a>
+          </article>
+          <article data-k="incident">
+            <div class="meta"><span>30 Sep 2026</span><span>CNN</span></div>
+            <h3>India's women demand safety after alleged sexual assault</h3>
+            <p>Hundreds of students marched in New Delhi demanding stronger safety measures, protesting a culture they say fails women and girls.</p>
+            <a href="https://edition.cnn.com/2026/09/30/world/video/indias-women-demand-safety-after-alleged-sexual-assault-digvid-vrtc-hnk" target="_blank" rel="noopener">Watch on CNN</a>
+          </article>
+          <article data-k="data">
+            <div class="meta"><span>2026</span><span>The Better India</span></div>
+            <h3>How India is responding to women's safety in 2026</h3>
+            <p>Covers reactions to the Kalkaji case and the data behind them, including that the accused is known to the survivor in 96.8% of reported rapes, and Delhi's rate of 130.7 crimes per lakh women.</p>
+            <a href="https://thebetterindia.com/changemakers/gender/womens-safety-india-2026-kalkaji-reactions-data-12586036" target="_blank" rel="noopener">Read on The Better India</a>
+          </article>
+          <article data-k="incident">
+            <div class="meta"><span>1 Oct 2026</span><span>NewsGram</span></div>
+            <h3>Viral map of Delhi areas that feel unsafe for women</h3>
+            <p>A resident's map built from public crime records drew 1.7 million views amid the protests. Its methodology is debated; it shows how much people want this information.</p>
+            <a href="https://www.newsgram.com/amp/story/delhi/2026/10/01/women-safety-in-delhi-unsafe-areas-for-women-map-viral-video" target="_blank" rel="noopener">Read on NewsGram</a>
+          </article>
+          <article data-k="data">
+            <div class="meta"><span>30 Sep 2025</span><span>The Week (PTI)</span></div>
+            <h3>NCRB: close to 4.5 lakh crimes against women in 2023</h3>
+            <p>4,48,211 cases, up from 4,45,256 in 2022. Cruelty by husband or relatives was the largest category at 1,33,676 cases.</p>
+            <a href="https://www.theweek.in/wire-updates/national/2025/09/30/del31-ncrb-women.html" target="_blank" rel="noopener">Read on The Week</a>
+          </article>
+          <article data-k="network">
+            <div class="meta"><span>Jul 2026</span><span>WION</span></div>
+            <h3>Delhi NEET protests: Bluetooth mesh apps kept people talking</h3>
+            <p>With mobile internet suspended around Jantar Mantar, protesters turned to Bluetooth mesh apps such as Bridgefy, Briar and Bitchat, the same idea Jilla applies to SOS.</p>
+            <a href="https://www.wionews.com/india-news/delhi-neet-protests-how-bluetooth-mesh-apps-kept-communication-alive-without-internet-1784890656998" target="_blank" rel="noopener">Read on WION</a>
+          </article>
+          <article data-k="network">
+            <div class="meta"><span>Apr 2026</span><span>Access Now (reported)</span></div>
+            <h3>India recorded 65 internet shutdowns in 2025</h3>
+            <p>The lowest since 2017 but still the highest among democracies; India accounts for 920 of 2,102 shutdowns recorded worldwide since 2016.</p>
+            <a href="https://visionias.in/current-affairs/upsc-daily-news-summary/article/2026-04-01/the-indian-express/security/india-recorded-65-internet-shutdowns-in-2025-highest-among-democracies-access-now-report" target="_blank" rel="noopener">Read the summary</a>
+          </article>
+          <article data-k="network">
+            <div class="meta"><span>2025</span><span>Sentinel Assam</span></div>
+            <h3>3,841 villages in the Northeast have no mobile network</h3>
+            <p>Ministry of Communications figures as of June 2025; 5,271 villages lack 4G. Arunachal Pradesh has the most unconnected villages.</p>
+            <a href="https://www.sentinelassam.com/amp/story/topheadlines/3841-villages-in-northeast-remain-out-of-mobile-network-coverage" target="_blank" rel="noopener">Read on Sentinel Assam</a>
+          </article>
+          <article data-k="policy">
+            <div class="meta"><span>14 Feb 2026</span><span>News On AIR</span></div>
+            <h3>National conference on safety of women at the workplace</h3>
+            <p>The Ministry of Women and Child Development pushed implementation of the POSH Act and the SHe-Box complaint portal.</p>
+            <a href="https://www.newsonair.gov.in/union-minister-annapurna-devi-addresses-national-conference-on-safety-of-women-at-workplace-in-new-delhi" target="_blank" rel="noopener">Read on News On AIR</a>
+          </article>
+          <article data-k="policy">
+            <div class="meta"><span>Dec 2023</span><span>Rajya Sabha</span></div>
+            <h3>ERSS-112 in all 36 states and UTs; calls tripled in two years</h3>
+            <p>About 4.13 crore calls in FY 2020–21 rising to 10.89 crore in FY 2022–23. Women Helpline 181 is integrated with ERSS in 29 states and UTs.</p>
+            <a href="https://rsdebate.nic.in/bitstream/123456789/745509/1/PQ_262_20122023_S192_p96_p97.pdf" target="_blank" rel="noopener">Read the reply (PDF)</a>
+          </article>
+        </div>
+        <p class="note">Snapshot compiled 9 October 2026. Early reports on ongoing cases may change; follow the links for the latest.</p>
+      </section>
+
+      <!-- 03 -->
+      <section class="chapter" id="why">
+        <div class="chapter-head">
+          <span class="num">03 · Why we built it</span>
+          <h2>Remove the single point of failure.</h2>
+          <p class="lede">Every SOS app we looked at depends on one thing being up at the worst moment: the victim's own connection. We set out to make that dependency optional, without turning strangers' phones into a privacy or spoofing risk.</p>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <span class="tag red">Purpose</span>
+            <h3>Get the alert out, whatever the network is doing</h3>
+            <p>If the victim's phone has internet, it delivers directly. If not, any nearby phone running Jilla becomes the path, and if nobody is nearby, phones carry the alert until someone is. The alert keeps moving until it reaches help.</p>
+          </div>
+          <div class="card">
+            <span class="tag">Constraint</span>
+            <h3>Strangers must carry it blind</h3>
+            <p>Relays are random people. They must not learn who is in danger or exactly where, must not be able to tamper with or forge alerts, and must not be able to track the victim. The cryptography does that work, so the network doesn't need to be trusted.</p>
+          </div>
+          <div class="card">
+            <span class="tag amber">Gap we saw</span>
+            <h3>Existing tools stop at the network</h3>
+            <p>Calling 112, SOS shortcuts, location-sharing apps and messaging all need signal or data on the victim's phone. Bluetooth mesh chat apps work offline, but they're for messaging, with no authority, no verification and no privacy from relays.</p>
+          </div>
+          <div class="card">
+            <span class="tag">Goal</span>
+            <h3>A feature Android could ship</h3>
+            <p>Built as a proof of concept for a system-level feature: on every phone by default, a mesh that already exists on the day someone needs it. That network effect is what makes mesh delivery realistic.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 04 -->
+      <section class="chapter" id="how">
+        <div class="chapter-head">
+          <span class="num">04 · How it works offline</span>
+          <h2>Follow one alert out of a dead zone.</h2>
+          <p class="lede">Play the simulation, or step through it. The shaded area has no signal and no internet. Only the last phone on the right has a connection.</p>
+        </div>
+        <div class="sim" id="sim">
+          <div class="sim-stage"><canvas id="simCanvas" aria-label="Animation: an SOS hops between phones over Bluetooth, crosses a gap carried by a walking person, and reaches the authority through the one phone with internet." role="img"></canvas></div>
+          <div class="sim-bar">
+            <button class="primary" id="simPlay" type="button">Play</button>
+            <button id="simStep" type="button">Next step</button>
+            <button id="simReset" type="button">Restart</button>
+            <div class="sim-progress" aria-hidden="true"><i id="simProg"></i></div>
+          </div>
+          <div class="sim-caption" aria-live="polite">
+            <span class="step" id="simStepLabel">Step 1 of 8</span>
+            <h3 id="simTitle">Asha is in a dead zone</h3>
+            <p id="simText">No signal, no internet. Calling 112 won't connect. Nearby, a few people have Jilla running in the background.</p>
+          </div>
+        </div>
+        <div class="legend">
+          <span><i style="background: var(--signal)"></i>Victim's phone</span>
+          <span><i style="background: var(--muted)"></i>Phone without the alert</span>
+          <span><i style="background: var(--mesh)"></i>Phone carrying the sealed alert</span>
+          <span><i style="background: var(--amber)"></i>Phone with internet (gateway)</span>
+        </div>
+        <div class="views">
+          <div class="view">
+            <span class="tag">What a relaying stranger sees</span>
+<pre>alert_id   1634aed0…   (random per incident)
+area       tdr4n        (~5 km geohash cell)
+hops left  6 of 7
+sender     fb1e6f4f…    (one-time key, unlinkable)
+name       <span class="redact">██████████</span>  sealed
+location   <span class="redact">██████████</span>  sealed
+phone      <span class="redact">██████████</span>  sealed
+contacts   <span class="redact">██████████</span>  sealed</pre>
+          </div>
+          <div class="view">
+            <span class="tag red">What the authority sees</span>
+<pre>alert_id   1634aed0…   DISPATCH
+name       Test user    (registered, verified)
+phone      +91 9xxxx xx904
+location   12.97160, 77.59460  ±15 m   (illustrative)
+contacts   1 emergency contact
+note       bluetooth-hop-test
+path       CMF (offline) → Bluetooth → Realme → server</pre>
+          </div>
+        </div>
+        <p class="note">The right-hand panel follows a real test on two phones: the CMF had no route to the server, so the Realme relayed its alert over Bluetooth and uploaded it. Personal details are masked and the coordinates are illustrative.</p>
+      </section>
+
+      <!-- 05 -->
+      <section class="chapter" id="paths">
+        <div class="chapter-head">
+          <span class="num">05 · Delivery paths</span>
+          <h2>Four ways out, tried at once.</h2>
+          <p class="lede">The phone doesn't choose a route. It tries all of them in parallel, and the server keeps exactly one copy of each update.</p>
+        </div>
+        <div class="grid-2">
+          <div class="card"><span class="tag">Direct</span><h3>Victim's phone is online</h3><p>It uploads the sealed packet straight to the authority, sends SMS to emergency contacts from the victim's own number, and broadcasts to the mesh as well.</p></div>
+          <div class="card"><span class="tag">Gateway</span><h3>Someone nearby is online</h3><p>A bystander's phone receives the alert over Bluetooth and uploads it. It can't read what it's uploading. The laptop authority can also receive straight over Web Bluetooth.</p></div>
+          <div class="card"><span class="tag">Multi-hop</span><h3>Nobody nearby is online</h3><p>Phones re-broadcast to their neighbours, one Bluetooth hop at a time (tens of metres each), with a hop limit of 7 and duplicate detection on every phone.</p></div>
+          <div class="card"><span class="tag">Carry-forward</span><h3>Nobody nearby at all</h3><p>Phones keep the alert and re-broadcast it every 10 seconds for the relay window (2 minutes in the demo, an hour or more in a real rollout), so it moves with people until it meets a path out.</p></div>
+        </div>
+      </section>
+
+      <!-- 06 -->
+      <section class="chapter" id="crypto">
+        <div class="chapter-head">
+          <span class="num">06 · Crypto &amp; security</span>
+          <h2>Trust the math, not the messenger.</h2>
+          <p class="lede">Every packet has four parts. Only the hop counter can change in transit; everything else is signed, and the private part is sealed so only the authority can open it.</p>
+        </div>
+        <div class="packet" aria-label="Packet layout">
+          <div class="p-ttl"><b>TTL</b>1 byte<small>Hops left. Outside the signature so relays can decrement it, like IP's TTL.</small></div>
+          <div class="p-hdr"><b>Public header</b>version · alert_id · incident_pub · timestamp · counter · geohash(5)<small>Readable by everyone, used for relaying and dedup. Signed.</small></div>
+          <div class="p-seal"><b>Sealed block</b>name · lat/lng · device · contacts · note · identity_pub · binding_sig<small>crypto_box_seal to the authority's X25519 key. Opaque to relays. Signed.</small></div>
+          <div class="p-sig"><b>Signature</b>Ed25519, 64 B<small>By the one-time incident key over header ‖ sealed.</small></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Threat</th><th>Control</th><th>Where it's enforced</th></tr></thead>
+            <tbody>
+              <tr><td>Relays reading who the victim is or where</td><td>Sealed block encrypted to the authority key (X25519 + XSalsa20-Poly1305)</td><td>Phone seals; only the server opens</td></tr>
+              <tr><td>Tampering in transit</td><td>Ed25519 signature over header ‖ sealed; Poly1305 tag inside the seal</td><td>Every relay and the server</td></tr>
+              <tr><td>Fake SOS flooding dispatch</td><td>Binding signature from a registered identity key; unregistered alerts are marked UNVERIFIED and capped at 10 new per minute</td><td>Server</td></tr>
+              <tr><td>Replaying an old alert</td><td>Per-incident counter, timestamp window (6 h, 5 min skew), dedup by alert stream</td><td>Every relay and the server</td></tr>
+              <tr><td>Hijacking a sniffed alert_id</td><td>Replay state keyed by (alert_id, incident_pub); server binds alert_id to the first verified key</td><td>Relays and server</td></tr>
+              <tr><td>Mesh flooding / DoS</td><td>Hop limit 7, duplicate cache, 1 update/s per alert, packet ≤ 4 KB, bounded LRU state</td><td>Every relay</td></tr>
+              <tr><td>Tracking the victim across incidents</td><td>Fresh Ed25519 incident key and random alert_id per SOS; identity only inside the seal</td><td>Phone</td></tr>
+              <tr><td>Registering someone else's key</td><td>Registration signed by the key being registered, with a timestamp</td><td>Server</td></tr>
+              <tr><td>Sending alerts to the wrong server</td><td>App pins the authority public key and checks the server's key on connect</td><td>Phone</td></tr>
+              <tr><td>Malformed or hostile packets</td><td>Strict CBOR decoder: length, depth and trailing-byte checks; fuzzed with 2,000 random inputs</td><td>Every node</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 07 -->
+      <section class="chapter" id="cns">
+        <div class="chapter-head">
+          <span class="num">07 · Why it's a CNS project</span>
+          <h2>Cryptography and network security, end to end.</h2>
+          <p class="lede">Jilla is an exercise in building a secure protocol over an untrusted, delay-tolerant network. Every relay is treated as a Dolev–Yao adversary: it can read, drop, delay, replay, reorder and inject packets. The design has to hold anyway.</p>
+        </div>
+
+        <div class="props">
+          <div class="prop"><b>Confidentiality</b><p>Hybrid public-key encryption (ECDH + stream cipher) seals personal data to the authority.</p></div>
+          <div class="prop"><b>Integrity</b><p>Ed25519 over the packet plus Poly1305 inside the seal: any changed bit is rejected.</p></div>
+          <div class="prop"><b>Authenticity</b><p>Two-level signatures: one-time incident key outside, registered identity key inside.</p></div>
+          <div class="prop"><b>Availability</b><p>Mesh flooding, carry-forward and rate limits keep alerts moving under loss and attack.</p></div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <span class="tag red">Public-key cryptography</span>
+            <h3>Three key types, kept separate</h3>
+            <p><b>Identity key</b> (Ed25519, long-term): registered once, proves who the user is to the authority only. <b>Incident key</b> (Ed25519, one per SOS): signs the public packet, then is discarded. <b>Authority key</b> (X25519): the only key that can open sealed blocks; bundled into the app and pinned. Signing and encryption never share a key.</p>
+          </div>
+          <div class="card">
+            <span class="tag red">Authenticated encryption</span>
+            <h3>The sealed box, byte for byte</h3>
+            <p>Anonymous sealed box (libsodium <code>crypto_box_seal</code>): a fresh ephemeral X25519 key per seal, ECDH with the authority key, HSalsa20 to derive the key, BLAKE2b to derive the nonce, XSalsa20-Poly1305 to encrypt and authenticate. We implemented it on BouncyCastle and verified it matches PyNaCl exactly.</p>
+          </div>
+        </div>
+
+        <div class="formula" aria-label="Construction">
+<pre><span class="c"># sealed block (per authority key, 48 B overhead)</span>
+<span class="k">epk, esk</span>  ← X25519.keygen()                      <span class="c">fresh every seal</span>
+<span class="k">s</span>          = X25519(esk, authority_pk)
+<span class="k">k</span>          = HSalsa20(s, 0¹⁶)                       <span class="c">crypto_box_beforenm</span>
+<span class="k">n</span>          = BLAKE2b-192(epk ‖ authority_pk)        <span class="c">no nonce reuse: epk is unique</span>
+sealed     = epk ‖ Poly1305-tag ‖ XSalsa20(k, n) ⊕ details
+
+<span class="c"># outer signature (relays verify, nobody can forge)</span>
+sig        = Ed25519.sign(incident_sk, header ‖ sealed)
+packet     = CBOR[ ttl, header, sealed, sig ]       <span class="c">ttl unsigned, like IPv4</span>
+
+<span class="c"># inside the seal: ties this one-time key to a registered person</span>
+binding    = Ed25519.sign(identity_sk, <span class="m">"SOSMESH-BIND-v1"</span> ‖ incident_pk)   <span class="c">domain-separated</span>
+
+<span class="c"># registration: proof of possession, fields bound, replay-bounded</span>
+reg_sig    = Ed25519.sign(identity_sk, <span class="m">"JILLA-REG-v2"</span> ‖ ts ‖ phone ‖ device ‖ name ‖ identity_pk)</pre>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <span class="tag">Security engineering choices</span>
+            <h3>Decisions we can defend</h3>
+            <p><b>No forward secrecy, on purpose:</b> the authority must still decrypt an alert after the victim's phone is destroyed, so we use a one-way seal instead of an interactive key exchange. <b>Unsigned TTL:</b> relays must decrement it without the sender's key; the worst a relay can do is raise it to 15, and dedup still bounds the flood. <b>Domain separation:</b> every signature carries a context tag, so a signature from one protocol step can't be replayed in another. <b>Constant-time</b> MAC comparison when opening seals.</p>
+          </div>
+          <div class="card">
+            <span class="tag">Network security</span>
+            <h3>The network side is half the project</h3>
+            <p><b>Flooding with a TTL</b> and per-node duplicate caches, the classic broadcast-storm defence. <b>Delay-tolerant networking:</b> store-carry-forward with a bounded carry window. <b>Bluetooth LE GATT:</b> every phone is both server and client; packets (~500 B) are chunked to the negotiated MTU (capped at 512 B per write) with a length-prefixed framing. <b>Defence in depth:</b> HTTPS tunnel for gateways, token-protected dashboard, rate limits on unverified traffic.</p>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Syllabus topic</th><th>Where Jilla uses it</th></tr></thead>
+            <tbody>
+              <tr><td>Elliptic-curve cryptography</td><td>Curve25519 in two forms: Ed25519 (twisted Edwards) for signatures, X25519 (Montgomery) for key agreement</td></tr>
+              <tr><td>Digital signatures</td><td>Incident signature, identity binding signature, registration proof of possession</td></tr>
+              <tr><td>Key exchange / hybrid encryption</td><td>Ephemeral–static ECDH inside the sealed box, ECIES-style</td></tr>
+              <tr><td>Stream ciphers and MACs</td><td>XSalsa20 stream cipher with a Poly1305 one-time authenticator</td></tr>
+              <tr><td>Hash functions and KDFs</td><td>BLAKE2b for nonce derivation and key IDs; HSalsa20 as the key-derivation step</td></tr>
+              <tr><td>Key management</td><td>Key separation, per-incident ephemeral keys, authority key pinning, registration</td></tr>
+              <tr><td>Replay and freshness</td><td>Monotonic counters, timestamp windows, dedup at relays and server</td></tr>
+              <tr><td>Anonymity and unlinkability</td><td>One-time incident keys and random alert IDs; coarse geohash only in cleartext</td></tr>
+              <tr><td>DoS and flooding defence</td><td>TTL, duplicate caches, per-alert and global rate limits, size and parse limits</td></tr>
+              <tr><td>Wireless / ad hoc networks</td><td>BLE advertising, GATT client and server, MTU negotiation, multi-hop relay</td></tr>
+              <tr><td>Threat modelling</td><td>Dolev–Yao relays; threat-to-control table in chapter 06</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 08 -->
+      <section class="chapter" id="arch">
+        <div class="chapter-head">
+          <span class="num">08 · Architecture</span>
+          <h2>One protocol core, four places it runs.</h2>
+          <p class="lede">The crypto, packet format and relay engine are one plain Kotlin library. The same code runs in the app, in unit tests and in headless test nodes, and the transport can change from TCP to Bluetooth without touching it.</p>
+        </div>
+        <div class="arch">
+          <div class="card"><span class="tag red">Android app</span><h3>Kotlin · Jetpack Compose</h3><ul><li>Hold-to-trigger SOS, live location every 30 s</li><li>Bluetooth LE: GATT server + scanner</li><li>Foreground service keeps the mesh alive</li><li>SMS to contacts, nearby-alert notifications</li></ul></div>
+          <div class="card"><span class="tag">Protocol core</span><h3>Kotlin · BouncyCastle</h3><ul><li>Ed25519, X25519, sealed box</li><li>CBOR packet codec, replay guard</li><li>Relay engine: verify, dedup, TTL, carry</li><li>Transport interface: TCP or BLE</li></ul></div>
+          <div class="card"><span class="tag amber">Authority server</span><h3>Python · FastAPI · PyNaCl</h3><ul><li>Verify, dedup, decrypt, dispatch</li><li>Signed registration, SQLite</li><li>Live console with maps</li><li>Web Bluetooth receiver in the browser</li></ul></div>
+          <div class="card"><span class="tag">Dev tools</span><h3>Testing harness</h3><ul><li>mesh-sim: TCP hub with a "who can hear whom" graph</li><li>Headless JVM nodes</li><li>Debug-only adb hooks</li><li>Cloudflare tunnel for remote gateways</li></ul></div>
+        </div>
+        <pre class="mermaid">
+flowchart LR
+  V["Victim phone<br/>(no network)"] -- "BLE · sealed packet" --> R1["Bystander phone"]
+  R1 -- "BLE hop" --> R2["Bystander phone<br/>(has internet)"]
+  V -. "carried while walking" .-> R2
+  R2 -- "HTTPS POST /sos" --> S["Authority server<br/>verify · dedup · decrypt"]
+  V -. "Web Bluetooth" .-> L["Authority laptop<br/>(browser console)"]
+  L --> S
+  S --> D["Dispatch console<br/>+ notify 112 and contacts"]
+        </pre>
+      </section>
+
+      <!-- 09 -->
+      <section class="chapter" id="demo">
+        <div class="chapter-head">
+          <span class="num">09 · Live demo</span>
+          <h2>See it on real phones.</h2>
+          <p class="lede">A recording of the app on two Android phones and the authority console. Drop a video here to play it in the browser; it stays on your device.</p>
+        </div>
+        <div class="video">
+          <div class="video-frame">
+            <video id="demoVideo" controls playsinline preload="metadata" hidden></video>
+            <div class="drop" id="drop">
+              <div style="display:grid; gap:10px; justify-items:center">
+                <strong style="font: 800 var(--step-1)/1.2 var(--font-display)">Demo video</strong>
+                <p>Drag an MP4 or WebM file here, or choose one.</p>
+                <label class="btn primary" for="videoFile">Choose a video</label>
+              </div>
+            </div>
+          </div>
+          <div class="video-bar">
+            <span id="videoName">No video loaded. Suggested shot list: hold SOS → nearby phone notification → console alert with map.</span>
+            <input type="file" id="videoFile" accept="video/*">
+            <button class="btn" id="videoClear" type="button" hidden>Remove video</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 10 -->
+      <section class="chapter" id="tested">
+        <div class="chapter-head">
+          <span class="num">10 · What we tested</span>
+          <h2>Every claim has a test behind it.</h2>
+          <p class="lede">22 Kotlin unit tests and 14 backend tests, plus end-to-end runs on two physical phones over adb (a CMF Phone 1 and a Realme).</p>
+        </div>
+        <div class="checks">
+          <div class="check"><span class="ok">PASS</span><div><h3>Libsodium interoperability</h3><p>Kotlin opens PyNaCl-sealed boxes and matches its Ed25519 signatures byte for byte; PyNaCl verifies and opens Kotlin-built packets.</p></div></div>
+          <div class="check"><span class="ok">PASS</span><div><h3>Every single-bit flip is rejected</h3><p>Each bit of the header, sealed block and signature was flipped in turn; all were rejected. Every byte of the sealed box was also tampered with.</p></div></div>
+          <div class="check"><span class="ok">PASS</span><div><h3>Replay, stale, forged and hijacked alerts</h3><p>Repeated and older counters, out-of-window timestamps, signatures by other keys, fake binding signatures and alert_id hijacks are all refused.</p></div></div>
+          <div class="check"><span class="ok">PASS</span><div><h3>Registration can't be abused</h3><p>Registering someone else's key, swapping the phone number after signing, and replaying an old registration all fail.</p></div></div>
+          <div class="check"><span class="ok">PASS</span><div><h3>Unverified alerts are capped, verified ones aren't</h3><p>During a simulated flood of 15 unregistered alerts, 10 were dispatched as UNVERIFIED, 5 got 429, and a registered user's alert still went through.</p></div></div>
+          <div class="check"><span class="ok">PASS</span><div><h3>Offline phone → Bluetooth → online phone → server</h3><p>On real hardware: the CMF, with no route to the server, sent its SOS over Bluetooth; the Realme relayed it, showed "Someone nearby needs help" and uploaded it; the server decrypted the name, number and a location accurate to ±15 m.</p></div></div>
+        </div>
+      </section>
+
+      <!-- 11 -->
+      <section class="chapter" id="limits">
+        <div class="chapter-head">
+          <span class="num">11 · Limits</span>
+          <h2>What this prototype can't do yet.</h2>
+        </div>
+        <div class="grid-2">
+          <div class="card"><h3>Mesh reach depends on people</h3><p>Each Bluetooth hop is tens of metres. With nobody in range, the alert waits on the victim's phone until someone comes near. Wide adoption or fixed relay "poles" are what make this reliable.</p></div>
+          <div class="card"><h3>Within one incident, updates are linkable</h3><p>A bystander can tell that several updates belong to the same alert. Across incidents, alerts are unlinkable.</p></div>
+          <div class="card"><h3>The authority is a stub</h3><p>The server simulates dispatch to 112 and contacts. It is not connected to any real emergency service, and must not be relied on in a real emergency.</p></div>
+          <div class="card"><h3>Prototype-grade key storage</h3><p>The identity key lives in app-private storage. A production build should keep it in the Android Keystore, and the dashboard needs real authentication instead of a link token.</p></div>
+        </div>
+      </section>
+
+      <!-- 12 -->
+      <section class="chapter" id="roadmap">
+        <div class="chapter-head">
+          <span class="num">12 · Roadmap</span>
+          <h2>From app to Android feature.</h2>
+          <p class="lede">The mesh is only as good as the number of phones in it. Built into the OS, every Android phone becomes a relay by default.</p>
+        </div>
+        <div class="road">
+          <div class="done"><h3>Done: protocol, server and Bluetooth mesh</h3><p>Signed and sealed packets, signed registration, gateway upload, store-carry-forward, phone-to-phone BLE and Web Bluetooth to the authority laptop.</p></div>
+          <div><h3>Next: survive restarts</h3><p>Persist the active SOS and carried alerts so a crash, update or reboot never ends an alert silently.</p></div>
+          <div><h3>Next: system triggers</h3><p>Power button pressed five times, a Quick Settings tile, and integration with Android's existing Emergency SOS flow.</p></div>
+          <div><h3>Later: a relay service in the OS</h3><p>A low-power Bluetooth relay running in Play services, so phones relay without anyone installing an app.</p></div>
+          <div><h3>Later: fixed poles and real dispatch</h3><p>Solar Bluetooth poles in coverage gaps, and integration with ERSS-112 with proper key management.</p></div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<footer class="wrap">
+  <div class="inner">
+    <span>Jilla · Cryptography &amp; Network Security course project · proof of concept</span>
+    <span>Not a certified emergency service. In an emergency, call <strong>112</strong> (women's helpline <strong>181</strong>).</span>
+  </div>
+</footer>
+
+<script>
+(() => {
+  // ---------- chapter rail highlight ----------
+  const links = [...document.querySelectorAll('#rail a')];
+  const byId = new Map(links.map(a => [a.getAttribute('href').slice(1), a]));
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          links.forEach(a => a.classList.remove('on'));
+          byId.get(e.target.id)?.classList.add('on');
+        }
+      });
+    }, { rootMargin: '-40% 0px -55% 0px' });
+    document.querySelectorAll('main > section[id]').forEach(s => io.observe(s));
+  }
+
+  // ---------- news filter ----------
+  const chips = [...document.querySelectorAll('.chip')];
+  chips.forEach(c => c.addEventListener('click', () => {
+    chips.forEach(x => x.setAttribute('aria-pressed', String(x === c)));
+    const f = c.dataset.f;
+    document.querySelectorAll('#newsList article').forEach(a => { a.hidden = f !== 'all' && a.dataset.k !== f; });
+  }));
+
+  // ---------- demo video (local file, never uploaded) ----------
+  const video = document.getElementById('demoVideo');
+  const drop = document.getElementById('drop');
+  const input = document.getElementById('videoFile');
+  const nameEl = document.getElementById('videoName');
+  const clearBtn = document.getElementById('videoClear');
+  let objUrl = null;
+  function loadFile(file) {
+    if (!file || !file.type.startsWith('video/')) { nameEl.textContent = 'That file is not a video. Choose an MP4 or WebM file.'; return; }
+    if (objUrl) URL.revokeObjectURL(objUrl);
+    objUrl = URL.createObjectURL(file);
+    video.src = objUrl; video.hidden = false; drop.hidden = true; clearBtn.hidden = false;
+    nameEl.textContent = 'Playing ' + file.name + ' from this device.';
+  }
+  input.addEventListener('change', () => loadFile(input.files[0]));
+  ['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', e => loadFile(e.dataTransfer.files[0]));
+  clearBtn.addEventListener('click', () => {
+    video.pause(); video.removeAttribute('src'); video.load(); video.hidden = true; drop.hidden = false; clearBtn.hidden = true;
+    if (objUrl) URL.revokeObjectURL(objUrl); objUrl = null; input.value = '';
+    nameEl.textContent = 'No video loaded.';
+  });
+  // A demo.mp4 published next to the page plays automatically when present.
+  fetch('jilla.mp4', { method: 'HEAD' }).then(r => {
+    if (r.ok && !objUrl) { video.src = 'demo.mp4'; video.hidden = false; drop.hidden = true; nameEl.textContent = 'Recorded demo: two phones and the authority console.'; }
+  }).catch(() => {});
+
+  // ---------- simulation ----------
+  const canvas = document.getElementById('simCanvas');
+  const ctx = canvas.getContext('2d');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const css = () => { const s = getComputedStyle(document.documentElement); const g = n => s.getPropertyValue(n).trim(); return { paper: g('--panel'), ink: g('--ink'), muted: g('--muted'), line: g('--line'), signal: g('--signal'), mesh: g('--mesh'), amber: g('--amber'), dead: g('--dead'), font: g('--font-body'), mono: g('--font-mono') }; };
+  let C = css();
+  matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => { C = css(); });
+  new MutationObserver(() => { C = css(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  // world coords 0..1 (x), 0..1 (y)
+  const N = {
+    V: { x: 0.07, y: 0.62, label: 'Asha', role: 'victim' },
+    A: { x: 0.20, y: 0.40, label: 'A' },
+    B: { x: 0.23, y: 0.80, label: 'B' },
+    C: { x: 0.35, y: 0.55, label: 'C' },
+    D: { x: 0.43, y: 0.70, label: 'D (walking)', walker: true },
+    E: { x: 0.69, y: 0.34, label: 'E' },
+    G: { x: 0.80, y: 0.62, label: 'F (online)', role: 'gateway' },
+  };
+  const AUTH = { x: 0.93, y: 0.30 };
+  const DEAD_END = 0.60; // dead zone spans x 0..0.60
+  const WALK_FROM = { x: 0.43, y: 0.70 }, WALK_TO = { x: 0.66, y: 0.66 };
+
+  const steps = [
+    { t: 'Asha is in a dead zone', p: "No signal, no internet. Calling 112 won't connect. Nearby, a few people have Jilla running in the background.", dur: 2.6 },
+    { t: 'She holds SOS for 2 seconds', p: 'Her phone seals her name, exact location and contacts so only the authority can open them, signs the packet with a one-time key, and broadcasts it over Bluetooth.', dur: 3.0 },
+    { t: 'Phones in range pick it up', p: 'A and B verify the signature and see only a ~5 km area. They get a "Someone nearby needs help" notification and re-broadcast with one hop fewer (7 → 6).', dur: 3.2 },
+    { t: 'Duplicates are dropped, the alert moves on', p: "C hears it from both A and B and keeps one copy. Asha's phone hears its own alert echoed back and ignores it. C re-broadcasts (hops left: 5).", dur: 3.2 },
+    { t: 'A gap no Bluetooth hop can cross', p: 'Nobody is within range on the other side. D, walking past, received it from C and keeps carrying it, re-broadcasting every few seconds.', dur: 4.6 },
+    { t: 'D walks into range of new phones', p: 'Store-carry-forward: when D comes near E and F, their phones receive the alert. F has internet.', dur: 2.8 },
+    { t: 'F uploads the sealed alert', p: "F's phone sends the packet over HTTPS. It still can't read it. The server verifies the signature, checks it's new, then opens the sealed block with the authority's private key.", dur: 3.0 },
+    { t: 'Help is dispatched', p: "The console shows Asha's verified name, number and exact location on a map, and notifies 112 and her emergency contacts. Elapsed: seconds to minutes, with zero network at her location.", dur: 3.4 },
+  ];
+  const total = steps.reduce((a, s) => a + s.dur, 0);
+  const starts = []; steps.reduce((a, s, i) => (starts[i] = a, a + s.dur), 0);
+
+  let time = 0, playing = false, last = 0, W = 0, H = 0, dpr = 1;
+
+  function resize() {
+    const r = canvas.getBoundingClientRect();
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = r.width; H = r.height;
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+  new ResizeObserver(resize).observe(canvas);
+
+  const P = (n) => ({ x: n.x * W, y: n.y * H });
+  const lerp = (a, b, k) => a + (b - a) * k;
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const ease = k => k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+  const stepAt = t => { for (let i = steps.length - 1; i >= 0; i--) if (t >= starts[i]) return i; return 0; };
+  const local = (t, i) => clamp((t - starts[i]) / steps[i].dur, 0, 1);
+
+  function walkerPos(t) {
+    const s4 = starts[4], e5 = starts[5] + steps[5].dur * 0.4;
+    const k = ease(clamp((t - s4 - 0.6) / (e5 - s4 - 0.6), 0, 1));
+    return { x: lerp(WALK_FROM.x, WALK_TO.x, k), y: lerp(WALK_FROM.y, WALK_TO.y, k) };
+  }
+
+  // when each node has the alert (seconds) + ttl it holds
+  const has = { V: starts[1] + 0.8, A: starts[2] + 1.0, B: starts[2] + 1.1, C: starts[3] + 0.9, D: starts[3] + 2.2, E: starts[5] + 1.2, G: starts[5] + 1.4 };
+  const ttl = { V: 7, A: 6, B: 6, C: 5, D: 4, E: 3, G: 3 };
+
+  function ring(cx, cy, t0, t, color, maxR) {
+    const k = (t - t0) / 1.2;
+    if (k < 0 || k > 1) return;
+    ctx.beginPath(); ctx.arc(cx, cy, maxR * ease(k), 0, Math.PI * 2);
+    ctx.strokeStyle = color; ctx.globalAlpha = 1 - k; ctx.lineWidth = 2; ctx.stroke(); ctx.globalAlpha = 1;
+  }
+
+  function phone(x, y, fill, label, opts = {}) {
+    const w = Math.max(16, W * 0.022), h = w * 1.7;
+    ctx.fillStyle = fill; ctx.strokeStyle = C.ink; ctx.lineWidth = 1.5;
+    roundRect(x - w / 2, y - h / 2, w, h, w * 0.25); ctx.fill(); ctx.stroke();
+    if (opts.lock) { ctx.fillStyle = C.paper; ctx.font = `600 ${Math.max(9, w * 0.55)}px ${C.mono}`; ctx.textAlign = 'center'; ctx.fillText('▣', x, y + w * 0.2); }
+    ctx.fillStyle = C.ink; ctx.font = `600 ${Math.max(10, W * 0.012)}px ${C.font}`; ctx.textAlign = 'center';
+    ctx.fillText(label, x, y + h / 2 + Math.max(13, W * 0.016));
+    if (opts.badge) {
+      ctx.font = `500 ${Math.max(9, W * 0.0105)}px ${C.mono}`; ctx.fillStyle = C.muted;
+      ctx.fillText(opts.badge, x, y - h / 2 - 7);
+    }
+  }
+  function roundRect(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+
+  function draw() {
+    if (!W) return;
+    const t = time, i = stepAt(t);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = C.paper; ctx.fillRect(0, 0, W, H);
+
+    // dead zone
+    ctx.fillStyle = C.dead; ctx.fillRect(0, 0, W * DEAD_END, H);
+    ctx.setLineDash([6, 6]); ctx.strokeStyle = C.line; ctx.beginPath(); ctx.moveTo(W * DEAD_END, 0); ctx.lineTo(W * DEAD_END, H); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = C.muted; ctx.font = `600 ${Math.max(10, W * 0.012)}px ${C.mono}`; ctx.textAlign = 'left';
+    ctx.fillText('NO SIGNAL · NO INTERNET', 12, 22);
+    ctx.textAlign = 'right'; ctx.fillText('COVERAGE', W - 12, 22);
+
+    // live positions
+    const pos = {}; for (const k in N) pos[k] = P(N[k]);
+    pos.D = P(walkerPos(t));
+    const R = W * 0.17;
+
+    // walk path hint
+    if (i >= 4) { ctx.setLineDash([3, 6]); ctx.strokeStyle = C.mesh; ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.moveTo(WALK_FROM.x * W, WALK_FROM.y * H); ctx.lineTo(WALK_TO.x * W, WALK_TO.y * H); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; }
+
+    // broadcast rings
+    ring(pos.V.x, pos.V.y, has.V, t, C.signal, R);
+    ring(pos.A.x, pos.A.y, has.A + 0.6, t, C.mesh, R);
+    ring(pos.B.x, pos.B.y, has.B + 0.6, t, C.mesh, R);
+    ring(pos.C.x, pos.C.y, has.C + 0.5, t, C.mesh, R);
+    for (let k = 0; k < 4; k++) ring(pos.D.x, pos.D.y, has.D + 1.0 + k * 1.3, t, C.mesh, R * 0.9);
+    ring(pos.G.x, pos.G.y, has.G + 0.3, t, C.amber, R * 0.6);
+
+    // hop links once delivered
+    const link = (a, b, when, col) => { if (t < when) return; ctx.strokeStyle = col; ctx.globalAlpha = 0.45; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(pos[a].x, pos[a].y); ctx.lineTo(pos[b].x, pos[b].y); ctx.stroke(); ctx.globalAlpha = 1; };
+    link('V', 'A', has.A, C.mesh); link('V', 'B', has.B, C.mesh); link('A', 'C', has.C, C.mesh); link('C', 'D', has.D, C.mesh);
+    link('D', 'E', has.E, C.mesh); link('D', 'G', has.G, C.mesh);
+
+    // duplicate drop marks
+    const xMark = (x, y, when, text) => {
+      if (t < when || t > when + 2.2) return;
+      ctx.fillStyle = C.muted; ctx.font = `500 ${Math.max(9, W * 0.0105)}px ${C.mono}`; ctx.textAlign = 'center';
+      ctx.globalAlpha = 1 - clamp((t - when - 1.4) / 0.8, 0, 1); ctx.fillText(text, x, y); ctx.globalAlpha = 1;
+    };
+    xMark((pos.B.x + pos.C.x) / 2, (pos.B.y + pos.C.y) / 2, starts[3] + 1.2, '✕ duplicate');
+    xMark(pos.V.x + 18, pos.V.y - 40, starts[3] + 0.6, '✕ own echo');
+
+    // authority
+    const ax = AUTH.x * W, ay = AUTH.y * H, bw = Math.max(70, W * 0.11), bh = bw * 0.66;
+    const authLit = t >= starts[6] + 1.6;
+    ctx.fillStyle = authLit ? C.signal : C.paper; ctx.strokeStyle = C.ink; ctx.lineWidth = 1.5;
+    roundRect(ax - bw / 2, ay - bh / 2, bw, bh, 8); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = authLit ? '#fff' : C.ink; ctx.font = `700 ${Math.max(10, W * 0.012)}px ${C.font}`; ctx.textAlign = 'center';
+    ctx.fillText('Authority', ax, ay - 2); ctx.font = `500 ${Math.max(9, W * 0.0105)}px ${C.mono}`;
+    ctx.fillText(authLit ? 'DISPATCH' : 'server', ax, ay + 13);
+
+    // upload packet travelling G -> authority
+    if (t >= starts[6]) {
+      const k = ease(clamp((t - starts[6]) / 1.6, 0, 1));
+      ctx.strokeStyle = C.amber; ctx.setLineDash([5, 5]); ctx.beginPath(); ctx.moveTo(pos.G.x, pos.G.y); ctx.lineTo(ax, ay + bh / 2); ctx.stroke(); ctx.setLineDash([]);
+      const px = lerp(pos.G.x, ax, k), py = lerp(pos.G.y, ay + bh / 2, k);
+      ctx.fillStyle = C.ink; roundRect(px - 9, py - 6, 18, 12, 3); ctx.fill();
+      ctx.fillStyle = C.amber; ctx.font = `600 ${Math.max(9, W * 0.0105)}px ${C.mono}`; ctx.textAlign = 'left';
+      ctx.fillText('HTTPS', (pos.G.x + ax) / 2 + 8, (pos.G.y + ay + bh / 2) / 2);
+    }
+
+    // dispatch card
+    if (t >= starts[7]) {
+      const k = clamp((t - starts[7]) / 0.6, 0, 1);
+      ctx.globalAlpha = k;
+      const cw = Math.max(150, W * 0.2), ch = Math.max(64, H * 0.2), cx = Math.min(W - cw - 10, ax - cw / 2), cy = ay + bh / 2 + 16;
+      ctx.fillStyle = C.paper; ctx.strokeStyle = C.signal; ctx.lineWidth = 2; roundRect(cx, cy, cw, ch, 8); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = C.ink; ctx.textAlign = 'left'; ctx.font = `700 ${Math.max(10, W * 0.012)}px ${C.font}`;
+      ctx.fillText('SOS · Asha · verified', cx + 10, cy + 20);
+      ctx.font = `500 ${Math.max(9, W * 0.0105)}px ${C.mono}`; ctx.fillStyle = C.muted;
+      ctx.fillText('12.97160, 77.59460 ±15 m', cx + 10, cy + 38);
+      ctx.fillText('→ 112 + contacts notified', cx + 10, cy + 54);
+      ctx.globalAlpha = 1;
+    }
+
+    // phones
+    for (const k of Object.keys(N)) {
+      const n = N[k], p = pos[k], got = t >= has[k];
+      let fill = C.muted;
+      if (n.role === 'victim') fill = C.signal;
+      else if (n.role === 'gateway') fill = got ? C.amber : C.muted;
+      else if (got) fill = C.mesh;
+      const badge = got ? (n.role === 'victim' ? 'SOS · ttl 7' : 'ttl ' + ttl[k]) : (n.role === 'gateway' ? 'online' : '');
+      phone(p.x, p.y, fill, n.label, { lock: got && n.role !== 'victim', badge });
+    }
+
+    // packet on the victim during step 1
+    if (i === 1) {
+      const k = local(t, 1);
+      const bx = pos.V.x + 26, by = pos.V.y - 46;
+      ctx.globalAlpha = clamp(k * 3, 0, 1);
+      const seg = [['hdr', C.mesh], ['sealed', C.ink], ['sig', C.signal]];
+      let x = bx; ctx.font = `600 ${Math.max(9, W * 0.0105)}px ${C.mono}`;
+      for (const [s, col] of seg) { const w = ctx.measureText(s).width + 12; ctx.fillStyle = col; roundRect(x, by, w, 18, 3); ctx.fill(); ctx.fillStyle = C.paper; ctx.textAlign = 'left'; ctx.fillText(s, x + 6, by + 13); x += w + 2; }
+      ctx.globalAlpha = 1;
+    }
+
+    // UI
+    document.getElementById('simProg').style.width = (100 * t / total) + '%';
+    document.getElementById('simStepLabel').textContent = `Step ${i + 1} of ${steps.length}`;
+    document.getElementById('simTitle').textContent = steps[i].t;
+    document.getElementById('simText').textContent = steps[i].p;
+  }
+
+  function frame(now) {
+    if (!playing) return;
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    time += dt;
+    if (time >= total) { time = total; setPlaying(false); }
+    draw();
+    if (playing) requestAnimationFrame(frame);
+  }
+  const playBtn = document.getElementById('simPlay');
+  function setPlaying(v) {
+    playing = v; playBtn.textContent = v ? 'Pause' : (time >= total ? 'Replay' : 'Play');
+    if (v) { if (time >= total) time = 0; last = performance.now(); requestAnimationFrame(frame); }
+  }
+  playBtn.addEventListener('click', () => setPlaying(!playing));
+  document.getElementById('simStep').addEventListener('click', () => {
+    setPlaying(false);
+    // Jump to the end state of the next step so its result is visible at rest; wrap after the last.
+    const i = stepAt(time);
+    const atEnd = time >= starts[i] + steps[i].dur - 0.02;
+    const next = atEnd ? (i + 1) % steps.length : i;
+    time = starts[next] + steps[next].dur - 0.01;
+    draw(); playBtn.textContent = 'Play';
+  });
+  document.getElementById('simReset').addEventListener('click', () => { setPlaying(false); time = 0; draw(); playBtn.textContent = 'Play'; });
+
+  // Rest state shows the finished journey; autoplay from the start when scrolled into view (not with reduced motion).
+  time = total - 0.01;
+  if (!reduce && 'IntersectionObserver' in window) {
+    let played = false;
+    new IntersectionObserver(es => es.forEach(e => {
+      if (e.isIntersecting && !played) { played = true; time = 0; setPlaying(true); }
+    }), { threshold: 0.5 }).observe(canvas);
+  }
+  resize();
+})();
+</script>
