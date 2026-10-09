@@ -1,3 +1,10 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Jilla: an offline women-safety SOS that hops phone to phone over Bluetooth with signed, sealed alerts.">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 <title>Jilla Safety Mesh</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -206,7 +213,8 @@ td code { white-space: nowrap; }
 footer { border-top: 1px solid var(--line); padding-block: 32px 48px; color: var(--muted); font-size: var(--step--1); }
 footer .inner { max-width: 1240px; margin: 0 auto; display: flex; gap: 24px; justify-content: space-between; flex-wrap: wrap; }
 </style>
-
+</head>
+<body>
 <div class="wrap">
   <header class="topbar">
     <div class="brand"><span class="brand-mark" aria-hidden="true">SOS</span>JILLA</div>
@@ -963,3 +971,19 @@ flowchart LR
   resize();
 })();
 </script>
+<script>
+// Standalone hosting (e.g. GitHub Pages): render the mermaid diagram ourselves.
+// Inside the claude.ai viewer mermaid is rendered natively, so skip it there.
+if (!/claude\.ai$/.test(location.hostname) && document.querySelector('pre.mermaid')) {
+  const s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js';
+  s.onload = () => {
+    const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+    mermaid.initialize({ startOnLoad: false, theme: dark ? 'dark' : 'neutral' });
+    mermaid.run({ querySelector: 'pre.mermaid' });
+  };
+  document.body.appendChild(s);
+}
+</script>
+</body>
+</html>
